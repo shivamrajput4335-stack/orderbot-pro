@@ -116,7 +116,6 @@ async function submitOrder(event) {
 
     setStatus(isEditing ? "Order updated" : "Order added");
     resetForm();
-
     await loadOrders();
   } catch (error) {
     console.error("Order submission failed", error);
@@ -124,7 +123,7 @@ async function submitOrder(event) {
   } finally {
     isSubmitting = false;
     submitButton.disabled = false;
-    submitButton.textContent = editingOrderId !== null ? "Update Order" : "Submit";
+    submitButton.textContent = editingOrderId ? "Update Order" : "Submit";
   }
 }
 
@@ -251,6 +250,8 @@ cancelEditButton.addEventListener("click", () => {
   resetForm();
   setStatus("Edit cancelled");
 });
+
+
 document.addEventListener("DOMContentLoaded", () => {
   submitButton.addEventListener("click", submitOrder);
   formEl.addEventListener("submit", submitOrder);
