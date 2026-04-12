@@ -9,6 +9,23 @@ const productInput = document.getElementById("product");
 const quantityInput = document.getElementById("quantity");
 let isSubmitting = false;
 let editingOrderId = null;
+let ordersState = [];
+
+function getOrderDisplayValues(order) {
+  const name =
+    typeof order?.name === "string" && order.name.trim()
+      ? order.name.trim()
+      : "No Name";
+  const product =
+    typeof order?.product === "string" && order.product.trim()
+      ? order.product.trim()
+      : "No Product";
+  const quantity = Number.isFinite(Number(order?.quantity))
+    ? Number(order.quantity)
+    : 0;
+
+  return { name, product, quantity };
+}
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -113,9 +130,11 @@ async function submitOrder(event) {
 
 function startEditOrder(order) {
   editingOrderId = order.id;
-  nameInput.value = order.name;
-  productInput.value = order.product;
-  quantityInput.value = order.quantity;
+  nameInput.value = typeof order.name === "string" ? order.name : "";
+  productInput.value = typeof order.product === "string" ? order.product : "";
+  quantityInput.value = Number.isFinite(Number(order.quantity))
+    ? Number(order.quantity)
+    : "";
   submitButton.textContent = "Update Order";
   cancelEditButton.hidden = false;
   setStatus(`Editing order #${order.id}`);
@@ -127,6 +146,84 @@ function resetForm() {
   formEl.reset();
   submitButton.textContent = "Submit";
   cancelEditButton.hidden = true;
+}
+
+async function deleteOrder(orderId) {
+  const order = ordersState.find((item) => item.id === orderId);
+
+  if (!order) {
+    setStatus("Order not found", true);
+    return;
+  }
+
+  const confirmed = window.confirm("Delete?");
+
+  if (!confirmed) {
+    return;
+  }
+  setStatus("Deleting...");
+
+  try {
+    const response = await fetch(`${API}/order/${orderId}`, {
+      method: "DELETE",
+    });
+
+    const result = await parseJsonResponse(response);
+    console.log("DELETE /order response received", {
+      ok: response.ok,
+      status: response.status,
+      result,
+    });
+
+    if (!response.ok) {
+      throw new Error(result.error || "Failed to delete order");
+    }
+
+    if (editingOrderId === orderId) {
+      resetForm();
+    }
+
+    setStatus("Order deleted");
+    await loadOrders();
+  } catch (error) {
+    console.error("Order deletion failed", error);
+    setStatus(error.message || "Error deleting order", true);
+  }
+}
+
+function renderOrders() {
+  if (ordersState.length === 0) {
+    ordersEl.innerHTML = "<div class=\"order\">No orders yet.</div>";
+    return;
+  }
+
+  ordersEl.innerHTML = "";
+
+  ordersState.forEach((order) => {
+    console.log("rendering order", order);
+    const displayOrder = getOrderDisplayValues(order);
+    const div = document.createElement("div");
+    div.className = "order";
+    div.innerHTML = `
+      <strong>${displayOrder.name}</strong>
+      <p>${displayOrder.product}</p>
+      <p>Qty: ${displayOrder.quantity}</p>
+      <div class="order-actions">
+        <button type="button" class="edit-btn">Edit</button>
+        <button type="button" class="delete-btn">Delete</button>
+      </div>
+    `;
+
+    div.querySelector(".edit-btn").addEventListener("click", () => {
+      startEditOrder(order);
+    });
+
+    div.querySelector(".delete-btn").addEventListener("click", () => {
+      deleteOrder(order.id);
+    });
+
+    ordersEl.appendChild(div);
+  });
 }
 
 async function loadOrders() {
@@ -142,35 +239,8 @@ async function loadOrders() {
       throw new Error(data.error || "Failed to load orders");
     }
 
-    if (!Array.isArray(data) || data.length === 0) {
-      ordersEl.innerHTML = "<div class=\"order\">No orders yet.</div>";
-      return;
-    }
-
-    ordersEl.innerHTML = "";
-
-    data.forEach((order) => {
-      const div = document.createElement("div");
-      div.className = "order";
-      div.innerHTML = `
-        <b>${order.name}</b><br>
-        ${order.product}<br>
-        Qty: ${order.quantity}
-      `;
-
-      const actions = document.createElement("div");
-      actions.className = "order-actions";
-
-      const editButton = document.createElement("button");
-      editButton.type = "button";
-      editButton.className = "order-action edit-action";
-      editButton.textContent = "Edit";
-      editButton.addEventListener("click", () => startEditOrder(order));
-
-      actions.appendChild(editButton);
-      div.appendChild(actions);
-      ordersEl.appendChild(div);
-    });
+    ordersState = Array.isArray(data) ? data : [];
+    renderOrders();
   } catch (error) {
     ordersEl.innerHTML = `<div class="order">Failed to load orders: ${error.message || "Unknown error"}</div>`;
     console.error("Failed to load orders", error);

@@ -10,14 +10,18 @@ const helmet = require("helmet");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error("Missing Supabase environment variables. Check SUPABASE_URL and SUPABASE_KEY.");
+  console.error(
+    "Missing Supabase environment variables. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+  );
   process.exit(1);
 }
 
 let supabaseProjectRef = "unknown";
+let supabaseKeyRole = "unknown";
 
 try {
   supabaseProjectRef = new URL(supabaseUrl).hostname.split(".")[0] || "unknown";
@@ -26,12 +30,27 @@ try {
   process.exit(1);
 }
 
+try {
+  const jwtPayload = JSON.parse(
+    Buffer.from(supabaseKey.split(".")[1], "base64url").toString("utf8")
+  );
+  supabaseKeyRole = jwtPayload.role || "unknown";
+} catch (error) {
+  console.warn("Could not decode Supabase key role:", error.message);
+}
+
+if (supabaseKeyRole !== "service_role") {
+  console.warn(
+    "Supabase client is not using a service_role key. Writes may fail because of row-level security."
+  );
+}
+
 // 🔐 SECURITY
-app.use(helmet());
-app.use(cors({
-  origin: "*", // 🔥 later restrict to your domain
-}));
-app.use(express.json());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+  })
+);
 
 // 🚫 RATE LIMIT (ANTI-SPAM)
 app.use(rateLimit({
@@ -45,8 +64,34 @@ app.use(express.static(path.join(__dirname, "public")));
 // 🔗 SUPABASE CLIENT
 const supabase = createClient(
   supabaseUrl,
-  supabaseKey
+  supabaseKey,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  }
 );
+
+function buildSupabaseErrorResponse(error, action) {
+  if (error?.code === "42501") {
+    return {
+      status: 500,
+      body: {
+        error: "Database access blocked",
+        details: `Supabase RLS blocked ${action}. Configure SUPABASE_SERVICE_ROLE_KEY for the backend or add a matching policy on the orders table.`,
+      },
+    };
+  }
+
+  return {
+    status: 500,
+    body: {
+      error: "Database error",
+      details: error?.message || "Unknown database error",
+    },
+  };
+}
 
 // 🧠 HEALTH CHECK
 app.get("/", (req, res) => {
@@ -91,7 +136,8 @@ app.post("/order", async (req, res) => {
         hint: error.hint,
         code: error.code,
       });
-      return res.status(500).json({ error: "Database error", details: error.message });
+      const failure = buildSupabaseErrorResponse(error, "order creation");
+      return res.status(failure.status).json(failure.body);
     }
 
     console.log("Order inserted successfully:", data);
@@ -121,7 +167,8 @@ app.get("/orders", async (req, res) => {
         hint: error.hint,
         code: error.code,
       });
-      return res.status(500).json({ error: "Database error", details: error.message });
+      const failure = buildSupabaseErrorResponse(error, "order fetch");
+      return res.status(failure.status).json(failure.body);
     }
 
     console.log(`Fetched ${data.length} orders from Supabase.`);
@@ -175,11 +222,52 @@ app.put("/order/:id", async (req, res) => {
         hint: error.hint,
         code: error.code,
       });
-      return res.status(500).json({ error: "Database error", details: error.message });
+      const failure = buildSupabaseErrorResponse(error, "order update");
+      return res.status(failure.status).json(failure.body);
     }
 
     console.log("Order updated successfully:", data);
     return res.json({ success: true, order: data });
+  } catch (err) {
+    console.error("SERVER ERROR:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.delete("/order/:id", async (req, res) => {
+  try {
+    const orderId = Number(req.params.id);
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+      return res.status(400).json({ error: "Invalid order id" });
+    }
+
+    console.log("Delete request received:", { orderId });
+
+    const { data, error } = await supabase
+      .from("orders")
+      .delete()
+      .eq("id", orderId)
+      .select("id")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Supabase delete error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      });
+      const failure = buildSupabaseErrorResponse(error, "order deletion");
+      return res.status(failure.status).json(failure.body);
+    }
+
+    if (!data) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    console.log("Order deleted successfully:", data);
+    return res.json({ success: true, deletedId: data.id });
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return res.status(500).json({ error: "Server error" });
@@ -194,4 +282,5 @@ app.use((req, res) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Connected to Supabase project: ${supabaseProjectRef}`);
+  console.log(`Supabase key role: ${supabaseKeyRole}`);
 });
