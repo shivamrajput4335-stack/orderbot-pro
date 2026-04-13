@@ -254,13 +254,14 @@ app.delete("/order/:id", async (req, res) => {
       .select("id")
       .maybeSingle();
 
-    if (error) {
-      console.error("Supabase delete error:", {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-      });
+   if (error) {
+  console.error("Supabase delete error:", error);
+
+  return res.status(500).json({
+    error: "Delete failed",
+    message: error.message,
+  });
+  
       const failure = buildSupabaseErrorResponse(error, "order deletion");
       return res.status(failure.status).json(failure.body);
     }
