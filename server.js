@@ -52,7 +52,9 @@ app.use(
   })
 );
 
-// 🚫 RATE LIMIT (ANTI-SPAM)
+app.use(express.json()); // ✅ ADD THIS
+
+// 🚫 RATE LIMIT
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
@@ -261,7 +263,7 @@ app.delete("/order/:id", async (req, res) => {
     error: "Delete failed",
     message: error.message,
   });
-  
+
       const failure = buildSupabaseErrorResponse(error, "order deletion");
       return res.status(failure.status).json(failure.body);
     }
