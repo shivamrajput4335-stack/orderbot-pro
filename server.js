@@ -101,19 +101,21 @@ app.get("/", (req, res) => {
 // 🚀 ADD ORDER
 app.post("/order", async (req, res) => {
   try {
+    console.log("Incoming order:", req.body);
+
     let { name, product, quantity } = req.body;
 
     // 🔒 sanitize
     name = String(name).trim();
     product = String(product).trim();
-    quantity = Number(quantity);
+    const qty = Number(quantity);
 
     // ✅ validation
     if (!name || !product) {
       return res.status(400).json({ error: "Missing fields" });
     }
 
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (isNaN(qty) || qty <= 0) {
       return res.status(400).json({ error: "Invalid quantity" });
     }
 
@@ -121,11 +123,12 @@ app.post("/order", async (req, res) => {
       return res.status(400).json({ error: "Too long input" });
     }
 
-    console.log("Insert request received:", { name, product, quantity });
+    console.log("Insert request received:", { name, product, quantity: qty });
 
+    // If insert fails, ensure RLS disabled or proper policy added
     const { data, error } = await supabase
       .from("orders")
-      .insert([{ name, product, quantity }])
+      .insert([{ name, product, quantity: qty }])
       .select("id, name, product, quantity")
       .single();
 
@@ -145,7 +148,7 @@ app.post("/order", async (req, res) => {
 
   } catch (err) {
     console.error("SERVER ERROR:", err);
-    return res.status(500).json({ error: "Server error" });
+    return res.status(500).json({ error: err.message || "Server error" });
   }
 });
 
