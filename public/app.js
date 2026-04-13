@@ -1,3 +1,61 @@
+const supabase = window.supabase.createClient(
+  "https://xaajavxegbcahusslypx.supabase.co.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhYWphdnhlZ2JjYWh1c3NseXB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MzM2NzMsImV4cCI6MjA5MTUwOTY3M30.zmuiRqI2juksLci9BGgG-p1MIrI9BGBDLY6J6pasUps"
+);
+
+async function signup(email, password) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (error) alert(error.message);
+  else alert("Signup successful");
+}
+
+async function login(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    alert(error.message);
+  } else {
+    localStorage.setItem("token", data.session.access_token); // 🔥 IMPORTANT
+    alert("Logged in");
+  }
+}
+
+const token = localStorage.getItem("token");
+
+fetch(`${API}/order`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`
+  },
+  body: JSON.stringify({ name, product, quantity })
+});
+
+const jwt = require("jsonwebtoken");
+
+function verifyUser(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) return res.status(401).json({ error: "No token" });
+
+  try {
+    const decoded = jwt.decode(token);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+}
+
+
+
 const API = window.location.origin;
 const formEl = document.getElementById("order-form");
 const statusEl = document.getElementById("status");
