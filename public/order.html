@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrderBot Pro - Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    header h1 {
+      font-size: 24px;
+      color: #333;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .user-email {
+      background: #f0f0f0;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #666;
+    }
+
+    .btn-logout {
+      padding: 10px 20px;
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-logout:hover {
+      background: #ff5252;
+      transform: translateY(-2px);
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+
+    @media (max-width: 768px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        flex-direction: column;
+        text-align: center;
+      }
+
+      .user-info {
+        flex-direction: column;
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .card h2 {
+      font-size: 20px;
+      color: #333;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #f0f0f0;
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .form-group input::placeholder {
+      color: #ccc;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+      font-size: 14px;
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .orders-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .order-item {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 6px;
+      border-left: 4px solid #667eea;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.3s;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .order-item:hover {
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+      transform: translateX(3px);
+    }
+
+    .order-details {
+      flex: 1;
+    }
+
+    .order-title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .order-meta {
+      font-size: 13px;
+      color: #999;
+    }
+
+    .order-actions {
+      display: flex;
+      gap: 10px;
+      margin-left: 15px;
+    }
+
+    .btn-delete {
+      padding: 8px 12px;
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+
+    .btn-delete:hover {
+      background: #ff5252;
+    }
+
+    .btn-delete:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #999;
+    }
+
+    .empty-state .icon {
+      font-size: 40px;
+      margin-bottom: 10px;
+    }
+
+    .empty-state p {
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>📦 OrderBot Pro Dashboard</h1>
+      <div class="user-info">
+        <div class="user-email" id="userEmail">Loading...</div>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content">
+      <!-- Create Order Card -->
+      <div class="card">
+        <h2>Create New Order</h2>
+        <div id="createMessage" class="message"></div>
+        <form id="orderForm">
+          <div class="form-group">
+            <label for="orderName">Customer Name</label>
+            <input
+              type="text"
+              id="orderName"
+              placeholder="Enter customer name"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="orderProduct">Product</label>
+            <input
+              type="text"
+              id="orderProduct"
+              placeholder="Enter product name"
+              required
+            >
+          </div>
+          <div class="form-group">
+            <label for="orderQuantity">Quantity</label>
+            <input
+              type="number"
+              id="orderQuantity"
+              placeholder="Enter quantity"
+              min="1"
+              required
+            >
+          </div>
+          <button type="submit" class="btn-submit" id="submitBtn">
+            Create Order
+          </button>
+        </form>
+      </div>
+
+      <!-- Orders List Card -->
+      <div class="card">
+        <h2>Your Orders</h2>
+        <div id="ordersMessage" class="message"></div>
+        <div id="ordersList" class="orders-list">
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <p>Loading orders...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Shared Utilities -->
+  <script src="/app.js"></script>
+
+  <script>
+    const createMessageEl = document.getElementById('createMessage');
+    const ordersMessageEl = document.getElementById('ordersMessage');
+    const orderForm = document.getElementById('orderForm');
+    const ordersList = document.getElementById('ordersList');
+    const userEmailEl = document.getElementById('userEmail');
+
+    // Protect page - require auth
+    window.addEventListener('load', () => {
+      if (!isLoggedIn()) {
+        window.location.href = '/auth.html';
+        return;
+      }
+
+      // Verify token is still valid
+      const token = getToken();
+      if (!token) {
+        window.location.href = '/auth.html';
+        return;
+      }
+
+      // Set user email
+      userEmailEl.textContent = `👤 ${localStorage.getItem('userEmail') || 'User'}`;
+
+      // Load orders on page load
+      loadOrders();
+    });
+
+    /**
+     * Load and display user orders
+     */
+    async function loadOrders() {
+      const result = await fetchOrders();
+
+      if (!result.success) {
+        showMessage(ordersMessageEl, `❌ ${result.error}`, 'error');
+        ordersList.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">❌</div>
+            <p>Failed to load orders</p>
+          </div>
+        `;
+        return;
+      }
+
+      const orders = result.data;
+
+      if (orders.length === 0) {
+        ordersList.innerHTML = `
+          <div class="empty-state">
+            <div class="icon">📭</div>
+            <p>No orders yet. Create one to get started!</p>
+          </div>
+        `;
+        return;
+      }
+
+      ordersList.innerHTML = orders.map(order => `
+        <div class="order-item">
+          <div class="order-details">
+            <div class="order-title">${escapeHtml(order.name)} - ${escapeHtml(order.product)}</div>
+            <div class="order-meta">
+              Qty: ${order.quantity} | 
+              Created: ${new Date(order.created_at).toLocaleDateString()}
+            </div>
+          </div>
+          <div class="order-actions">
+            <button class="btn-delete" onclick="deleteOrderItem('${order.id}')">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    /**
+     * Delete order by ID
+     */
+    async function deleteOrderItem(orderId) {
+      if (!confirm('Are you sure you want to delete this order?')) {
+        return;
+      }
+
+      const result = await deleteOrder(orderId);
+
+      if (result.success) {
+        showMessage(ordersMessageEl, '✅ Order deleted successfully', 'success');
+        await loadOrders();
+      } else {
+        showMessage(ordersMessageEl, `❌ ${result.error}`, 'error');
+      }
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    /**
+     * Handle order form submission
+     */
+    orderForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('orderName').value.trim();
+      const product = document.getElementById('orderProduct').value.trim();
+      const quantity = parseInt(document.getElementById('orderQuantity').value);
+
+      if (!name || !product || !quantity || quantity < 1) {
+        showMessage(createMessageEl, 'Please fill in all fields correctly', 'error');
+        return;
+      }
+
+      setButtonLoading('submitBtn', true);
+      const result = await createOrder(name, product, quantity);
+      setButtonLoading('submitBtn', false);
+
+      if (result.success) {
+        showMessage(createMessageEl, '✅ Order created successfully!', 'success');
+        orderForm.reset();
+        await loadOrders();
+      } else {
+        showMessage(createMessageEl, `❌ ${result.error}`, 'error');
+      }
+    });
+
+    console.log('[ORDER PAGE] Initialized');
+  </script>
+</body>
+</html>

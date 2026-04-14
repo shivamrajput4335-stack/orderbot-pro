@@ -50,9 +50,9 @@ const verifyToken = (req, res, next) => {
   next();
 };
 
-// POST /order - Create new order
-app.post('/order', verifyToken, async (req, res) => {
-  console.log('[ORDER] POST /order');
+// POST /api/order - Create new order
+app.post('/api/order', verifyToken, async (req, res) => {
+  console.log('[ORDER] POST /api/order');
   console.log('[ORDER] Body:', req.body);
 
   const { name, product, quantity } = req.body;
@@ -115,9 +115,9 @@ app.post('/order', verifyToken, async (req, res) => {
   }
 });
 
-// GET /orders - Get all user orders
-app.get('/orders', verifyToken, async (req, res) => {
-  console.log('[ORDERS] GET /orders');
+// GET /api/orders - Get all user orders
+app.get('/api/orders', verifyToken, async (req, res) => {
+  console.log('[ORDERS] GET /api/orders');
 
   try {
     // Verify user
@@ -156,9 +156,9 @@ app.get('/orders', verifyToken, async (req, res) => {
   }
 });
 
-// DELETE /order/:id - Delete order
-app.delete('/order/:id', verifyToken, async (req, res) => {
-  console.log('[DELETE] DELETE /order/:id -', req.params.id);
+// DELETE /api/order/:id - Delete order
+app.delete('/api/order/:id', verifyToken, async (req, res) => {
+  console.log('[DELETE] DELETE /api/order/:id -', req.params.id);
 
   try {
     // Verify user
