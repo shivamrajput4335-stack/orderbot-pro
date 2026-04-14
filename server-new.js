@@ -1,3 +1,8 @@
+/**
+ * OrderBot Pro Backend Server
+ * Multi-page SaaS order management system
+ */
+
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -6,12 +11,15 @@ require("dotenv").config();
 
 const app = express();
 
-// Middleware
+// ===============================================
+// MIDDLEWARE
+// ===============================================
+
 app.use(cors());
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ limit: '10kb', extended: true }));
 
-// Permissive CSP for development
+// CSP Headers
 app.use((req, res, next) => {
   res.header('Content-Security-Policy', "default-src *; script-src 'unsafe-inline' 'unsafe-eval' *; style-src 'unsafe-inline' *; img-src data: *");
   res.header('X-Content-Type-Options', 'nosniff');
@@ -19,23 +27,23 @@ app.use((req, res, next) => {
   next();
 });
 
+// ===============================================
+// INITIALIZATION
+// ===============================================
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-console.log('[SERVER] Starting...');
+console.log('[SERVER] Initializing...');
 
-// Test route
-app.get('/', (req, res) => {
-  console.log('[API] GET / - serving frontend');
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+// ===============================================
+// TOKEN VERIFICATION MIDDLEWARE
+// ===============================================
 
-// Verify token middleware
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
-  console.log('[AUTH] Checking auth header:', authHeader ? 'present' : 'missing');
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     console.log('[AUTH] ❌ No valid bearer token');
@@ -48,45 +56,44 @@ const verifyToken = (req, res, next) => {
   next();
 };
 
-// POST /api/order - Create new order
+// ===============================================
+// API ROUTES - MUST BE BEFORE STATIC SERVING
+// ===============================================
+
+/**
+ * POST /api/order - Create new order
+ */
 app.post('/api/order', verifyToken, async (req, res) => {
   console.log('[ORDER] POST /api/order');
-  console.log('[ORDER] Body:', req.body);
 
   const { name, product, quantity } = req.body;
 
   // Validate
   if (!name || !name.trim()) {
-    console.log('[ORDER] ❌ Validation: empty name');
     return res.status(400).json({ error: 'Name is required' });
   }
 
   if (!product || !product.trim()) {
-    console.log('[ORDER] ❌ Validation: empty product');
     return res.status(400).json({ error: 'Product is required' });
   }
 
   const qty = parseInt(quantity);
   if (!qty || qty < 1) {
-    console.log('[ORDER] ❌ Validation: invalid quantity');
     return res.status(400).json({ error: 'Quantity must be at least 1' });
   }
 
   try {
     // Verify user with token
-    console.log('[ORDER] Verifying user...');
     const { data, error } = await supabase.auth.getUser(req.token);
 
     if (error || !data.user) {
-      console.log('[ORDER] ❌ Auth error:', error?.message || 'No user');
+      console.log('[ORDER] ❌ Auth error');
       return res.status(401).json({ error: 'Invalid token' });
     }
 
     const userId = data.user.id;
-    console.log('[ORDER] ✅ User verified:', userId);
 
     // Create order
-    console.log('[ORDER] Creating order...');
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -98,40 +105,36 @@ app.post('/api/order', verifyToken, async (req, res) => {
       .select();
 
     if (orderError) {
-      console.log('[ORDER] ❌ Database error:', orderError.message);
+      console.log('[ORDER] ❌ Database error');
       return res.status(500).json({ error: orderError.message });
     }
 
-    console.log('[ORDER] ✅ Created:', order[0].id);
-    return res.json({
-      success: true,
-      data: order[0]
-    });
+    console.log('[ORDER] ✅ Created');
+    return res.json({ success: true, data: order[0] });
   } catch (err) {
     console.error('[ORDER] ❌ Exception:', err.message);
     return res.status(500).json({ error: err.message });
   }
 });
 
-// GET /api/orders - Get all user orders
+/**
+ * GET /api/orders - Get all user orders
+ */
 app.get('/api/orders', verifyToken, async (req, res) => {
   console.log('[ORDERS] GET /api/orders');
 
   try {
     // Verify user
-    console.log('[ORDERS] Verifying user...');
     const { data, error } = await supabase.auth.getUser(req.token);
 
     if (error || !data.user) {
-      console.log('[ORDERS] ❌ Auth error:', error?.message);
+      console.log('[ORDERS] ❌ Auth error');
       return res.status(401).json({ error: 'Invalid token' });
     }
 
     const userId = data.user.id;
-    console.log('[ORDERS] ✅ User verified:', userId);
 
     // Get orders
-    console.log('[ORDERS] Fetching orders...');
     const { data: orders, error: ordersError } = await supabase
       .from('orders')
       .select('*')
@@ -139,22 +142,21 @@ app.get('/api/orders', verifyToken, async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (ordersError) {
-      console.log('[ORDERS] ❌ Error:', ordersError.message);
+      console.log('[ORDERS] ❌ Database error');
       return res.status(500).json({ error: ordersError.message });
     }
 
     console.log('[ORDERS] ✅ Found', orders.length, 'orders');
-    return res.json({
-      success: true,
-      data: orders
-    });
+    return res.json({ success: true, data: orders });
   } catch (err) {
     console.error('[ORDERS] ❌ Exception:', err.message);
     return res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE /api/order/:id - Delete order
+/**
+ * DELETE /api/order/:id - Delete order
+ */
 app.delete('/api/order/:id', verifyToken, async (req, res) => {
   console.log('[DELETE] DELETE /api/order/:id -', req.params.id);
 
@@ -168,7 +170,7 @@ app.delete('/api/order/:id', verifyToken, async (req, res) => {
 
     const userId = data.user.id;
 
-    // Delete order (check ownership)
+    // Delete order
     const { error: deleteError } = await supabase
       .from('orders')
       .delete()
@@ -176,25 +178,41 @@ app.delete('/api/order/:id', verifyToken, async (req, res) => {
       .eq('user_id', userId);
 
     if (deleteError) {
-      console.log('[DELETE] ❌ Error:', deleteError.message);
+      console.log('[DELETE] ❌ Database error');
       return res.status(500).json({ error: deleteError.message });
     }
 
     console.log('[DELETE] ✅ Deleted');
-    return res.json({
-      success: true,
-      data: null
-    });
+    return res.json({ success: true, data: null });
   } catch (err) {
     console.error('[DELETE] ❌ Exception:', err.message);
     return res.status(500).json({ error: err.message });
   }
 });
 
-// Serve static files (must be after API routes)
+// ===============================================
+// STATIC FILE SERVING (AFTER API ROUTES)
+// ===============================================
+
 app.use(express.static(path.join(__dirname, "public")));
 
-// Start server
+// Serve index.html for root path
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ===============================================
+// ERROR HANDLING
+// ===============================================
+
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// ===============================================
+// START SERVER
+// ===============================================
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`\n✅ OrderBot Pro Server Running`);
