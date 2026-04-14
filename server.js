@@ -149,7 +149,7 @@ app.post("/order", verifyUser, orderLimiter, async (req, res) => {
     }
 
     console.log(`[ORDER] ✅ Success: order_id=${data.id}`);
-    res.status(201).json({ success: true, order: data });
+    res.status(201).json({ success: true, data: data });
 
   } catch (err) {
     console.error("[ORDER] Server error:", err.message, err.stack);
@@ -174,7 +174,7 @@ app.get("/orders", verifyUser, async (req, res) => {
 
     const orders = data || [];
     console.log(`[ORDERS] ✅ Found ${orders.length} orders`);
-    res.json(orders);
+    res.status(200).json({ success: true, data: orders });
   } catch (err) {
     console.error("[ORDERS] Server error:", err.message, err.stack);
     res.status(500).json({ error: "Server error occurred" });
@@ -204,7 +204,7 @@ app.delete("/order/:id", verifyUser, async (req, res) => {
     }
 
     console.log(`[DELETE] ✅ Success: order_id=${orderId}`);
-    res.json({ success: true, message: "Order deleted successfully" });
+    res.status(200).json({ success: true, data: null });
   } catch (err) {
     console.error("[DELETE] Server error:", err.message, err.stack);
     res.status(500).json({ error: "Server error occurred" });

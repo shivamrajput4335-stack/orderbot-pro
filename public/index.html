@@ -643,16 +643,16 @@
         const data = await response.json();
         console.log('[ORDER] Response data:', data);
 
-        if (!response.ok) {
+        if (!response.ok || !data.success) {
           console.error('[ORDER] Server error:', data.error);
           showMessage('Order failed: ' + (data.error || 'Unknown error'), 'error');
           return;
         }
 
-        console.log('[ORDER] ✅ Success:', data.order?.id);
+        console.log('[ORDER] ✅ Success:', data.data?.id);
         showMessage('✅ Order created successfully!', 'success');
         document.getElementById('orderForm').reset();
-        loadOrders();
+        await loadOrders();
       } catch (err) {
         console.error('[ORDER] Exception:', err.message);
         showMessage('Order error: ' + err.message, 'error');
@@ -687,17 +687,19 @@
 
         console.log('[ORDERS] Response status:', response.status);
 
-        const orders = await response.json();
-        console.log('[ORDERS] Received:', orders.length || 0, 'orders');
+        const data = await response.json();
+        console.log('[ORDERS] Response:', data);
 
-        if (!response.ok) {
-          console.error('[ORDERS] Server error:', orders.error);
-          showMessage('Failed to load orders: ' + (orders.error || 'Unknown error'), 'error');
+        if (!response.ok || !data.success) {
+          console.error('[ORDERS] Server error:', data.error);
+          showMessage('Failed to load orders: ' + (data.error || 'Unknown error'), 'error');
           return;
         }
 
+        const orders = data.data || [];
         const ordersList = document.getElementById('ordersList');
 
+        console.log('[ORDERS] Received:', orders.length || 0, 'orders');
         if (!orders || orders.length === 0) {
           console.log('[ORDERS] No orders to display');
           ordersList.innerHTML = '<div class="empty-state"><p>No orders yet. Create one above!</p></div>';
@@ -754,7 +756,7 @@
         const data = await response.json();
         console.log('[DELETE] Response data:', data);
 
-        if (!response.ok) {
+        if (!response.ok || !data.success) {
           console.error('[DELETE] Server error:', data.error);
           showMessage('Delete failed: ' + (data.error || 'Unknown error'), 'error');
           return;
@@ -762,7 +764,7 @@
 
         console.log('[DELETE] ✅ Success');
         showMessage('✅ Order deleted successfully!', 'success');
-        loadOrders();
+        await loadOrders();
       } catch (err) {
         console.error('[DELETE] Exception:', err.message);
         showMessage('Delete error: ' + err.message, 'error');
