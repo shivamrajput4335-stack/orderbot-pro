@@ -20,6 +20,7 @@ app.use(cors({
 }));
 
 app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ limit: '10kb', extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
 const supabase = createClient(
@@ -43,6 +44,15 @@ const orderLimiter = rateLimit({
 
 app.use(apiLimiter);
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`\n[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log("Body:", JSON.stringify(req.body).substring(0, 200));
+  }
+  next();
+});
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -50,22 +60,37 @@ app.get("/", (req, res) => {
 async function verifyUser(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
+    
+    if (!authHeader) {
+      console.warn("[AUTH] Missing authorization header");
       return res.status(401).json({ error: "Missing authorization header" });
     }
 
+    if (!authHeader.startsWith("Bearer ")) {
+      console.warn("[AUTH] Invalid authorization format");
+      return res.status(401).json({ error: "Invalid authorization format" });
+    }
+
     const token = authHeader.slice(7);
+    console.log("[AUTH] Validating token...");
+
     const { data, error } = await supabase.auth.getUser(token);
 
-    if (error || !data.user) {
-      console.error("Token validation error:", error?.message || "Invalid token");
+    if (error) {
+      console.warn("[AUTH] Token validation error:", error.message);
       return res.status(401).json({ error: "Invalid or expired token" });
     }
 
+    if (!data.user) {
+      console.warn("[AUTH] No user data in token");
+      return res.status(401).json({ error: "Invalid token" });
+    }
+
+    console.log(`[AUTH] ✅ User verified: ${data.user.id}`);
     req.user = data.user;
     next();
   } catch (err) {
-    console.error("Auth middleware error:", err.message);
+    console.error("[AUTH] Middleware error:", err.message, err.stack);
     res.status(500).json({ error: "Authentication service error" });
   }
 }
@@ -74,30 +99,38 @@ app.post("/order", verifyUser, orderLimiter, async (req, res) => {
   try {
     const { name, product, quantity } = req.body;
 
+    console.log(`[ORDER] Received request:`, { name, product, quantity });
+
     const nameStr = String(name || "").trim();
     const productStr = String(product || "").trim();
     const qty = parseInt(quantity, 10);
 
     if (!nameStr) {
+      console.warn("[ORDER] Validation failed: empty name");
       return res.status(400).json({ error: "Customer name is required" });
     }
     if (!productStr) {
+      console.warn("[ORDER] Validation failed: empty product");
       return res.status(400).json({ error: "Product is required" });
     }
     if (isNaN(qty) || qty < 1) {
+      console.warn("[ORDER] Validation failed: invalid quantity");
       return res.status(400).json({ error: "Quantity must be at least 1" });
     }
     if (qty > 10000) {
+      console.warn("[ORDER] Validation failed: quantity too high");
       return res.status(400).json({ error: "Quantity cannot exceed 10000" });
     }
     if (nameStr.length > 200) {
+      console.warn("[ORDER] Validation failed: name too long");
       return res.status(400).json({ error: "Customer name too long" });
     }
     if (productStr.length > 200) {
+      console.warn("[ORDER] Validation failed: product too long");
       return res.status(400).json({ error: "Product name too long" });
     }
 
-    console.log(`[ORDER] Creating order for user ${req.user.id}: ${nameStr} x${qty} of ${productStr}`);
+    console.log(`[ORDER] Creating: user=${req.user.id}, name=${nameStr}, product=${productStr}, qty=${qty}`);
 
     const { data, error } = await supabase
       .from("orders")
@@ -111,15 +144,15 @@ app.post("/order", verifyUser, orderLimiter, async (req, res) => {
       .single();
 
     if (error) {
-      console.error("[ORDER_ERROR] Database insert failed:", error.message, error.code);
-      return res.status(500).json({ error: "Failed to create order" });
+      console.error("[ORDER] Database error:", error.message, error.code, error.details);
+      return res.status(500).json({ error: "Failed to create order", details: error.message });
     }
 
-    console.log(`[ORDER_SUCCESS] Order ${data.id} created`);
+    console.log(`[ORDER] ✅ Success: order_id=${data.id}`);
     res.status(201).json({ success: true, order: data });
 
   } catch (err) {
-    console.error("[SERVER_ERROR] POST /order:", err.message);
+    console.error("[ORDER] Server error:", err.message, err.stack);
     res.status(500).json({ error: "Server error occurred" });
   }
 });
@@ -135,13 +168,15 @@ app.get("/orders", verifyUser, async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("[ORDERS_ERROR] Query failed:", error.message);
-      return res.status(500).json({ error: "Failed to fetch orders" });
+      console.error("[ORDERS] Query error:", error.message);
+      return res.status(500).json({ error: "Failed to fetch orders", details: error.message });
     }
 
-    res.json(data || []);
+    const orders = data || [];
+    console.log(`[ORDERS] ✅ Found ${orders.length} orders`);
+    res.json(orders);
   } catch (err) {
-    console.error("[SERVER_ERROR] GET /orders:", err.message);
+    console.error("[ORDERS] Server error:", err.message, err.stack);
     res.status(500).json({ error: "Server error occurred" });
   }
 });
@@ -150,11 +185,12 @@ app.delete("/order/:id", verifyUser, async (req, res) => {
   try {
     const orderId = req.params.id;
 
+    console.log(`[DELETE] Attempting: order_id=${orderId}, user_id=${req.user.id}`);
+
     if (!orderId || !/^\d+$/.test(orderId)) {
+      console.warn("[DELETE] Invalid order ID format:", orderId);
       return res.status(400).json({ error: "Invalid order ID format" });
     }
-
-    console.log(`[DELETE] Attempting to delete order ${orderId} for user ${req.user.id}`);
 
     const { error: deleteError } = await supabase
       .from("orders")
@@ -163,30 +199,39 @@ app.delete("/order/:id", verifyUser, async (req, res) => {
       .eq("user_id", req.user.id);
 
     if (deleteError) {
-      console.error("[DELETE_ERROR]:", deleteError.message);
-      return res.status(500).json({ error: "Failed to delete order" });
+      console.error("[DELETE] Error:", deleteError.message);
+      return res.status(500).json({ error: "Failed to delete order", details: deleteError.message });
     }
 
-    console.log(`[DELETE_SUCCESS] Order ${orderId} deleted`);
+    console.log(`[DELETE] ✅ Success: order_id=${orderId}`);
     res.json({ success: true, message: "Order deleted successfully" });
   } catch (err) {
-    console.error("[SERVER_ERROR] DELETE /order/:id:", err.message);
+    console.error("[DELETE] Server error:", err.message, err.stack);
     res.status(500).json({ error: "Server error occurred" });
   }
 });
 
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 app.use((req, res) => {
+  console.warn(`[404] Not found: ${req.method} ${req.path}`);
   res.status(404).json({ error: "Endpoint not found" });
 });
 
 app.use((err, req, res, next) => {
-  console.error("[UNCAUGHT_ERROR]:", err.message);
+  console.error("[UNCAUGHT] Error:", err.message, err.stack);
   res.status(500).json({ error: "Internal server error" });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`🔗 Supabase connected: ${process.env.SUPABASE_URL ? "Yes" : "No"}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`✅ OrderBot Pro Server Started`);
+  console.log(`${'='.repeat(60)}`);
+  console.log(`Port: ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Supabase: ${process.env.SUPABASE_URL ? '✅ Connected' : '❌ Missing'}`);
+  console.log(`${'='.repeat(60)}\n`);
 });
