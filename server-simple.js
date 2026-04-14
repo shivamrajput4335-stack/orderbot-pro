@@ -1,26 +1,17 @@
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const { createClient } = require("@supabase/supabase-js");
-require("dotenv").config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '10kb' }));
-app.use(express.urlencoded({ limit: '10kb', extended: true }));
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Permissive CSP for development
-app.use((req, res, next) => {
-  res.header('Content-Security-Policy', "default-src *; script-src 'unsafe-inline' 'unsafe-eval' *; style-src 'unsafe-inline' *; img-src data: *");
-  res.header('X-Content-Type-Options', 'nosniff');
-  res.header('X-Frame-Options', 'DENY');
-  next();
-});
-
-app.use(express.static(path.join(__dirname, "public")));
-
+// Supabase client (service role for backend)
+const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY

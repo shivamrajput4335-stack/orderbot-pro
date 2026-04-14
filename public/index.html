@@ -3,941 +3,258 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OrderBot Pro - Order Management System</title>
+  <title>OrderBot Pro</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    .container {
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      overflow: hidden;
-      max-width: 500px;
-      width: 100%;
-      backdrop-filter: blur(10px);
-    }
-
-    .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 40px 30px;
-      text-align: center;
-    }
-
-    .header h1 {
-      font-size: 28px;
-      margin-bottom: 5px;
-    }
-
-    .header p {
-      font-size: 14px;
-      opacity: 0.9;
-    }
-
-    .content {
-      padding: 30px;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #333;
-    }
-
-    .form-group input,
-    .form-group select {
-      width: 100%;
-      padding: 12px 15px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 14px;
-      transition: all 0.3s ease;
-      font-family: inherit;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    .button {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .button-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-
-    .button-primary:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-    }
-
-    .button-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .button-secondary {
-      background: #f0f0f0;
-      color: #333;
-    }
-
-    .button-secondary:hover:not(:disabled) {
-      background: #e0e0e0;
-    }
-
-    .button-danger {
-      background: #ff4757;
-      color: white;
-      padding: 8px 16px;
-      width: auto;
-      font-size: 12px;
-    }
-
-    .button-danger:hover:not(:disabled) {
-      background: #ff3838;
-    }
-
-    .button-secondary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .message {
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-size: 14px;
-      animation: slideIn 0.3s ease;
-    }
-
-    .message.success {
-      background: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
-    }
-
-    .message.error {
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
-    }
-
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .orders-grid {
-      margin-top: 30px;
-      padding-top: 30px;
-      border-top: 2px solid #f0f0f0;
-    }
-
-    .orders-grid h2 {
-      font-size: 18px;
-      margin-bottom: 20px;
-      color: #333;
-    }
-
-    .order-card {
-      background: #f9f9f9;
-      border: 1px solid #e0e0e0;
-      border-radius: 12px;
-      padding: 15px;
-      margin-bottom: 15px;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 10px;
-      animation: slideIn 0.3s ease;
-    }
-
-    .order-info {
-      flex: 1;
-    }
-
-    .order-info h3 {
-      font-size: 14px;
-      margin-bottom: 5px;
-      color: #333;
-    }
-
-    .order-info p {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 3px;
-    }
-
-    .order-actions {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: #999;
-    }
-
-    .empty-state p {
-      font-size: 14px;
-      margin-bottom: 10px;
-    }
-
-    .tab-buttons {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .tab-btn {
-      flex: 1;
-      padding: 10px;
-      border: 2px solid #e0e0e0;
-      background: white;
-      color: #333;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      transition: all 0.3s ease;
-    }
-
-    .tab-btn.active {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border-color: transparent;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    .loading-spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top-color: white;
-      animation: spin 0.6s linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    @media (max-width: 640px) {
-      .header {
-        padding: 30px 20px;
-      }
-
-      .header h1 {
-        font-size: 24px;
-      }
-
-      .content {
-        padding: 20px;
-      }
-
-      .order-card {
-        flex-direction: column;
-      }
-
-      .order-actions {
-        width: 100%;
-        justify-content: flex-end;
-      }
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 20px; }
+    .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    h1 { text-align: center; margin-bottom: 30px; color: #333; }
+    .section { margin-bottom: 40px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+    .section h2 { font-size: 18px; margin-bottom: 15px; color: #667eea; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; }
+    input, select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+    button { padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold; }
+    button:hover { background: #764ba2; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    .result { margin-top: 10px; padding: 12px; border-radius: 4px; font-size: 13px; word-break: break-word; }
+    .result.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .result.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .order-list { margin-top: 20px; }
+    .order-item { background: #f9f9f9; padding: 12px; margin-bottom: 10px; border-radius: 4px; border-left: 4px solid #667eea; }
+    .order-item p { margin: 5px 0; font-size: 14px; }
+    .order-item button { margin-top: 10px; background: #dc3545; padding: 6px 12px; font-size: 12px; }
+    .status { text-align: center; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-weight: bold; }
+    .status.logged-in { background: #d4edda; color: #155724; }
+    .status.logged-out { background: #f8d7da; color: #721c24; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="header">
-      <h1>OrderBot Pro</h1>
-      <p>Smart Order Management System</p>
+    <h1>📦 OrderBot Pro</h1>
+    <div id="status" class="status logged-out">❌ NOT LOGGED IN</div>
+
+    <div class="section">
+      <h2>🆕 Sign Up</h2>
+      <form id="signupForm">
+        <div class="form-group"><label>Email:</label><input type="email" id="signupEmail" placeholder="you@gmail.com" required></div>
+        <div class="form-group"><label>Password (6+ chars):</label><input type="password" id="signupPassword" placeholder="password" required></div>
+        <button type="submit">Sign Up</button>
+        <div id="signupResult"></div>
+      </form>
     </div>
 
-    <div class="content" id="app">
-      <div id="message-container"></div>
-
-      <div id="authSection">
-        <div class="tab-buttons">
-          <button class="tab-btn active" onclick="switchTab('login')">Login</button>
-          <button class="tab-btn" onclick="switchTab('signup')">Sign Up</button>
+    <div class="section">
+      <h2>🔐 Login</h2>
+      <form id="loginForm">
+        <div class="form-group"><label>Email:</label><input type="email" id="loginEmail" placeholder="you@gmail.com" required></div>
+        <div class="form-group"><label>Password:</label><input type="password" id="loginPassword" placeholder="password" required></div>
+        <div class="two-col">
+          <button type="submit">Login</button>
+          <button type="button" id="logoutBtn" style="background: #6c757d;">Logout</button>
         </div>
+        <div id="loginResult"></div>
+      </form>
+    </div>
 
-        <div id="login" class="tab-content active">
-          <form id="loginForm" onsubmit="handleLogin(event)">
-            <div class="form-group">
-              <label for="loginEmail">Email Address</label>
-              <input type="email" id="loginEmail" name="email" required placeholder="your@email.com">
-            </div>
-            <div class="form-group">
-              <label for="loginPassword">Password</label>
-              <input type="password" id="loginPassword" name="password" required placeholder="••••••••">
-            </div>
-            <button type="submit" class="button button-primary" id="loginBtn">Sign In</button>
-          </form>
-        </div>
+    <div class="section">
+      <h2>📝 Create Order</h2>
+      <form id="orderForm">
+        <div class="form-group"><label>Customer Name:</label><input type="text" id="customerName" placeholder="John Doe" required></div>
+        <div class="form-group"><label>Product:</label><input type="text" id="productName" placeholder="Laptop" required></div>
+        <div class="form-group"><label>Quantity:</label><input type="number" id="quantity" placeholder="1" min="1" required></div>
+        <button type="submit">Submit Order</button>
+        <div id="orderResult"></div>
+      </form>
+    </div>
 
-        <div id="signup" class="tab-content">
-          <form id="signupForm" onsubmit="handleSignup(event)">
-            <div class="form-group">
-              <label for="signupEmail">Email Address</label>
-              <input type="email" id="signupEmail" name="email" required placeholder="your@email.com">
-            </div>
-            <div class="form-group">
-              <label for="signupPassword">Password (min 6 chars)</label>
-              <input type="password" id="signupPassword" name="password" required placeholder="••••••••" minlength="6">
-            </div>
-            <div class="form-group">
-              <label for="signupConfirm">Confirm Password</label>
-              <input type="password" id="signupConfirm" name="confirm" required placeholder="••••••••">
-            </div>
-            <button type="submit" class="button button-primary" id="signupBtn">Create Account</button>
-          </form>
-        </div>
-      </div>
-
-      <div id="ordersSection" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <h2 style="font-size: 18px; color: #333;">Welcome, <span id="userEmail" style="color: #667eea;"></span></h2>
-          <button class="button button-secondary" onclick="handleLogout()" style="width: auto; padding: 8px 16px; font-size: 12px;">Logout</button>
-        </div>
-
-        <form id="orderForm" onsubmit="handleSubmitOrder(event)">
-          <div class="form-group">
-            <label for="customerName">Customer Name *</label>
-            <input type="text" id="customerName" name="name" required placeholder="John Doe" maxlength="200">
-          </div>
-          <div class="form-group">
-            <label for="productName">Product Name *</label>
-            <input type="text" id="productName" name="product" required placeholder="e.g., Widget Pro" maxlength="200">
-          </div>
-          <div class="form-group">
-            <label for="quantity">Quantity *</label>
-            <input type="number" id="quantity" name="quantity" required min="1" max="10000" placeholder="1">
-          </div>
-          <button type="submit" class="button button-primary" id="submitOrderBtn">Create Order</button>
-        </form>
-
-        <div class="orders-grid">
-          <h2>Your Orders</h2>
-          <div id="ordersList">
-            <div class="empty-state">
-              <p>No orders yet. Create one above!</p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="section">
+      <h2>📋 Your Orders</h2>
+      <button id="loadOrdersBtn">Load Orders</button>
+      <div id="ordersList" class="order-list"></div>
+      <div id="ordersResult"></div>
     </div>
   </div>
 
   <script>
-    // Configuration
-    const API_URL = window.location.hostname === 'localhost'
-      ? 'http://localhost:3000'
-      : window.location.origin;
-
     const SUPABASE_URL = 'https://xaajavxegbcahusslypx.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhhYWphdnhlZ2JjYWh1c3NseXB4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU5MzM2NzMsImV4cCI6MjA5MTUwOTY3M30.zmuiRqI2juksLci9BGgG-p1MIrI9BGBDLY6J6pasUps';
+    const API_URL = 'http://localhost:3000';
 
+    console.log('[APP] Starting...');
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('[SUPABASE] ✅ Ready');
 
-    let currentUser = null;
-    let messageTimeout = null;
+    let currentUser = null, authToken = null;
 
-    // ========== INIT ==========
-    async function init() {
-      console.log('[INIT] OrderBot Pro starting...');
-      console.log('[INIT] API URL:', API_URL);
-      console.log('[INIT] Supabase URL:', SUPABASE_URL);
-
-      try {
-        console.log('[INIT] Checking session...');
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('[INIT] Session error:', error.message);
-          throw error;
-        }
-
-        if (data?.session?.user) {
-          console.log('[INIT] ✅ Session found:', data.session.user.id);
-          console.log('[INIT] Email:', data.session.user.email);
-          currentUser = data.session.user;
-          
-          if (data.session.access_token) {
-            console.log('[INIT] Storing access_token in localStorage');
-            localStorage.setItem('sb_access_token', data.session.access_token);
-          }
-          
-          updateAuthUI();
-          await loadOrders();
-        } else {
-          console.log('[INIT] No session found - showing auth section');
-          updateAuthUI();
-        }
-      } catch (err) {
-        console.error('[INIT] Error:', err.message, err.stack);
-        showMessage('Session check failed: ' + err.message, 'error');
-        updateAuthUI();
-      }
+    function showResult(id, msg, type = 'info') {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = msg; el.className = `result ${type}`; }
+      console.log(`[${type}] ${msg}`);
     }
 
-    // ========== UI HELPERS ==========
-    function switchTab(tabName) {
-      console.log('[UI] Switching to tab:', tabName);
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-      document.getElementById(tabName).classList.add('active');
-      document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
-    }
-
-    function updateAuthUI() {
-      const authSection = document.getElementById('authSection');
-      const ordersSection = document.getElementById('ordersSection');
-
+    function updateStatus() {
+      const el = document.getElementById('status');
       if (currentUser) {
-        console.log('[UI] Showing orders section for:', currentUser.email);
-        authSection.style.display = 'none';
-        ordersSection.style.display = 'block';
-        document.getElementById('userEmail').textContent = currentUser.email;
+        el.textContent = `✅ LOGGED IN as ${currentUser.email}`;
+        el.className = 'status logged-in';
+        document.getElementById('orderForm').style.display = 'block';
+        document.getElementById('loadOrdersBtn').style.display = 'block';
       } else {
-        console.log('[UI] Showing auth section');
-        authSection.style.display = 'block';
-        ordersSection.style.display = 'none';
+        el.textContent = '❌ NOT LOGGED IN';
+        el.className = 'status logged-out';
+        document.getElementById('orderForm').style.display = 'none';
+        document.getElementById('loadOrdersBtn').style.display = 'none';
       }
     }
 
-    function showMessage(text, type = 'success') {
-      console.log('[MESSAGE]', type.toUpperCase() + ':', text);
-      const container = document.getElementById('message-container');
-
-      const msgEl = document.createElement('div');
-      msgEl.className = `message ${type}`;
-      msgEl.textContent = text;
-
-      container.innerHTML = '';
-      container.appendChild(msgEl);
-
-      if (messageTimeout) clearTimeout(messageTimeout);
-      messageTimeout = setTimeout(() => {
-        msgEl.style.opacity = '0';
-        setTimeout(() => msgEl.remove(), 300);
-      }, 5000);
-    }
-
-    function setButtonLoading(btnId, isLoading) {
-      const btn = document.getElementById(btnId);
-      if (isLoading) {
-        btn.disabled = true;
-        btn.innerHTML = '<span class="loading-spinner"></span> Processing...';
-      } else {
-        btn.disabled = false;
-        btn.innerHTML = btn.getAttribute('data-original-text') || (btnId.includes('login') ? 'Sign In' : btnId.includes('signup') ? 'Create Account' : btnId.includes('submit') ? 'Create Order' : 'Submit');
-      }
-    }
-    // ========== TOKEN UTILITY ==========
-    async function getAccessToken() {
-      console.log('[TOKEN] Attempting to get access token...');
-      
-      try {
-        // Try to get from Supabase session first
-        const { data, error } = await supabase.auth.getSession();
-        if (!error && data?.session?.access_token) {
-          console.log('[TOKEN] ✅ Got token from Supabase session');
-          return data.session.access_token;
-        }
-      } catch (err) {
-        console.warn('[TOKEN] Could not get Supabase session:', err.message);
-      }
-
-      // Fallback to localStorage
-      const storedToken = localStorage.getItem('sb_access_token');
-      if (storedToken) {
-        console.log('[TOKEN] ✅ Got token from localStorage');
-        return storedToken;
-      }
-
-      console.error('[TOKEN] ❌ No access token available');
-      return null;
-    }
-    // ========== TOKEN UTILITY ==========
-    async function getAccessToken() {
-      console.log('[TOKEN] Attempting to get access token...');
-      
-      try {
-        // Try to get from Supabase session first
-        const { data, error } = await supabase.auth.getSession();
-        if (!error && data?.session?.access_token) {
-          console.log('[TOKEN] ✅ Got token from Supabase session');
-          return data.session.access_token;
-        }
-      } catch (err) {
-        console.warn('[TOKEN] Could not get Supabase session:', err.message);
-      }
-
-      // Fallback to localStorage
-      const storedToken = localStorage.getItem('sb_access_token');
-      if (storedToken) {
-        console.log('[TOKEN] ✅ Got token from localStorage');
-        return storedToken;
-      }
-
-      console.error('[TOKEN] ❌ No access token available');
-      return null;
-    }
-
-    // ========== AUTH HANDLERS ==========
-    async function handleLogin(event) {
-      event.preventDefault();
-      console.log('[LOGIN] ========== Login Started ==========');
-
-      const email = document.getElementById('loginEmail').value.trim();
-      const password = document.getElementById('loginPassword').value;
-
-      console.log('[LOGIN] Email:', email);
-      console.log('[LOGIN] Password length:', password.length);
-
-      if (!email || !password) {
-        console.warn('[LOGIN] ❌ Validation failed: missing fields');
-        showMessage('Please fill in all fields', 'error');
-        setButtonLoading('loginBtn', false);
-        return;
-      }
-
-      setButtonLoading('loginBtn', true);
-
-      try {
-        console.log('[LOGIN] Calling supabase.auth.signInWithPassword...');
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-        console.log('[LOGIN] Response received');
-        console.log('[LOGIN] Error:', error);
-        console.log('[LOGIN] Data:', data ? { user: data.user?.id, session: data.session ? 'exists' : 'none' } : 'null');
-
-        if (error) {
-          console.error('[LOGIN] ❌ Auth error:', error.message);
-          showMessage('Login failed: ' + error.message, 'error');
-          setButtonLoading('loginBtn', false);
-          return;
-        }
-
-        if (!data.user) {
-          console.error('[LOGIN] ❌ No user data in response');
-          showMessage('Login failed: No user data', 'error');
-          setButtonLoading('loginBtn', false);
-          return;
-        }
-
-        if (!data.session) {
-          console.error('[LOGIN] ❌ No session in response');
-          showMessage('Login failed: No session created', 'error');
-          setButtonLoading('loginBtn', false);
-          return;
-        }
-
-        console.log('[LOGIN] ✅ Auth successful for user:', data.user.id);
-        console.log('[LOGIN] ✅ Access token received:', data.session.access_token ? 'yes' : 'NO');
-        
-        // Store token in localStorage
-        if (data.session.access_token) {
-          localStorage.setItem('sb_access_token', data.session.access_token);
-          localStorage.setItem('sb_user_id', data.user.id);
-          localStorage.setItem('sb_user_email', data.user.email);
-          console.log('[LOGIN] ✅ Tokens stored in localStorage');
-        } else {
-          console.warn('[LOGIN] ⚠️ No access_token in session');
-        }
-
-        currentUser = data.user;
-        console.log('[LOGIN] ✅ currentUser set:', currentUser.id);
-        
-        document.getElementById('loginForm').reset();
-        console.log('[LOGIN] ✅ Form reset');
-        
-        showMessage('✅ Logged in successfully!', 'success');
-        console.log('[LOGIN] ✅ Success message shown');
-        
-        updateAuthUI();
-        console.log('[LOGIN] ✅ UI updated');
-        
-        await loadOrders();
-        console.log('[LOGIN] ========== Login Complete ==========');
-      } catch (err) {
-        console.error('[LOGIN] ❌ Exception:', err.message);
-        console.error('[LOGIN] Stack:', err.stack);
-        showMessage('Login error: ' + err.message, 'error');
-      } finally {
-        setButtonLoading('loginBtn', false);
-      }
-    }
-
-    async function handleSignup(event) {
-      event.preventDefault();
-      console.log('[SIGNUP] ========== Signup Started ==========');
-
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('[SIGNUP] Submitted');
       const email = document.getElementById('signupEmail').value.trim();
       const password = document.getElementById('signupPassword').value;
-      const confirm = document.getElementById('signupConfirm').value;
-
-      console.log('[SIGNUP] Email:', email);
-      console.log('[SIGNUP] Password length:', password.length);
-      console.log('[SIGNUP] Confirm length:', confirm.length);
-
-      if (!email || !password || !confirm) {
-        console.warn('[SIGNUP] ❌ Validation failed: missing fields');
-        showMessage('Please fill in all fields', 'error');
-        setButtonLoading('signupBtn', false);
-        return;
-      }
-
-      if (password !== confirm) {
-        console.warn('[SIGNUP] ❌ Passwords do not match');
-        showMessage('Passwords do not match', 'error');
-        setButtonLoading('signupBtn', false);
-        return;
-      }
-
-      if (password.length < 6) {
-        console.warn('[SIGNUP] ❌ Password too short (min 6 chars)');
-        showMessage('Password must be at least 6 characters', 'error');
-        setButtonLoading('signupBtn', false);
-        return;
-      }
-
-      setButtonLoading('signupBtn', true);
-
+      if (!email || !password) { showResult('signupResult', '❌ Fill all fields', 'error'); return; }
       try {
-        console.log('[SIGNUP] Calling supabase.auth.signUp...');
         const { data, error } = await supabase.auth.signUp({ email, password });
-
-        console.log('[SIGNUP] Response received');
-        console.log('[SIGNUP] Error:', error);
-        console.log('[SIGNUP] Data:', data ? { user: data.user?.id } : 'null');
-
-        if (error) {
-          console.error('[SIGNUP] ❌ Auth error:', error.message);
-          showMessage('Signup failed: ' + error.message, 'error');
-          setButtonLoading('signupBtn', false);
-          return;
-        }
-
-        if (!data.user) {
-          console.error('[SIGNUP] ❌ No user created');
-          showMessage('Signup failed: User not created', 'error');
-          setButtonLoading('signupBtn', false);
-          return;
-        }
-
-        console.log('[SIGNUP] ✅ Account created:', data.user.id);
-        console.log('[SIGNUP] ✅ Email confirmation may be required');
-        
-        showMessage('✅ Account created! Check your email to confirm.', 'success');
+        if (error) throw error;
+        console.log('[SIGNUP] ✅ Success');
+        showResult('signupResult', '✅ Check email to confirm!', 'success');
         document.getElementById('signupForm').reset();
-        console.log('[SIGNUP] ✅ Form reset - switching to login tab');
-        
-        switchTab('login');
-        console.log('[SIGNUP] ========== Signup Complete ==========');
       } catch (err) {
-        console.error('[SIGNUP] ❌ Exception:', err.message);
-        console.error('[SIGNUP] Stack:', err.stack);
-        showMessage('Signup error: ' + err.message, 'error');
-      } finally {
-        setButtonLoading('signupBtn', false);
+        console.error('[SIGNUP] ❌', err.message);
+        showResult('signupResult', `❌ ${err.message}`, 'error');
       }
-    }
+    });
 
-    async function handleLogout() {
-      console.log('[LOGOUT] ========== Logout Started ==========');
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('[LOGIN] Submitted');
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      if (!email || !password) { showResult('loginResult', '❌ Fill all fields', 'error'); return; }
       try {
-        console.log('[LOGOUT] Calling supabase.auth.signOut...');
-        const { error } = await supabase.auth.signOut();
-
-        if (error) {
-          console.error('[LOGOUT] ❌ Error:', error.message);
-          showMessage('Logout failed: ' + error.message, 'error');
-          return;
-        }
-
-        console.log('[LOGOUT] ✅ Supabase signOut complete');
-        
-        // Clear localStorage
-        localStorage.removeItem('sb_access_token');
-        localStorage.removeItem('sb_user_id');
-        localStorage.removeItem('sb_user_email');
-        console.log('[LOGOUT] ✅ localStorage cleared');
-        
-        currentUser = null;
-        console.log('[LOGOUT] ✅ currentUser cleared');
-        
-        updateAuthUI();
-        console.log('[LOGOUT] ✅ UI updated');
-        
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        console.log('[LOGIN] ✅ Success');
+        authToken = data.session.access_token;
+        currentUser = data.user;
+        localStorage.setItem('authToken', authToken);
+        showResult('loginResult', `✅ Welcome ${email}!`, 'success');
+        updateStatus();
         document.getElementById('loginForm').reset();
-        document.getElementById('signupForm').reset();
-        console.log('[LOGOUT] ✅ Forms reset');
-        
-        showMessage('✅ Logged out successfully', 'success');
-        console.log('[LOGOUT] ========== Logout Complete ==========');
+        await loadOrders();
       } catch (err) {
-        console.error('[LOGOUT] ❌ Exception:', err.message);
-        console.error('[LOGOUT] Stack:', err.stack);
-        showMessage('Logout error: ' + err.message, 'error');
+        console.error('[LOGIN] ❌', err.message);
+        showResult('loginResult', `❌ ${err.message}`, 'error');
       }
-    }
+    });
 
-    // ========== ORDER HANDLERS ==========
-    async function handleSubmitOrder(event) {
-      event.preventDefault();
-      console.log('[ORDER] Form submitted');
-
-      if (!currentUser) {
-        console.error('[ORDER] No authenticated user');
-        showMessage('You must be logged in', 'error');
-        return;
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      console.log('[LOGOUT] Clicked');
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        console.log('[LOGOUT] ✅ Success');
+        currentUser = null;
+        authToken = null;
+        localStorage.removeItem('authToken');
+        updateStatus();
+        showResult('loginResult', '✅ Logged out', 'success');
+      } catch (err) {
+        console.error('[LOGOUT] ❌', err.message);
+        showResult('loginResult', `❌ ${err.message}`, 'error');
       }
+    });
 
+    document.getElementById('orderForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      console.log('[ORDER] Submitted');
+      if (!authToken) { showResult('orderResult', '❌ Must login first', 'error'); return; }
       const name = document.getElementById('customerName').value.trim();
       const product = document.getElementById('productName').value.trim();
-      const quantity = document.getElementById('quantity').value.trim();
-
-      console.log('[ORDER] Validating:', { name, product, quantity });
-
-      if (!name) {
-        console.warn('[ORDER] Validation failed: empty name');
-        showMessage('Customer name is required', 'error');
-        return;
-      }
-      if (!product) {
-        console.warn('[ORDER] Validation failed: empty product');
-        showMessage('Product name is required', 'error');
-        return;
-      }
-      if (!quantity || isNaN(quantity) || parseInt(quantity) < 1) {
-        console.warn('[ORDER] Validation failed: invalid quantity');
-        showMessage('Quantity must be at least 1', 'error');
-        return;
-      }
-
-      setButtonLoading('submitOrderBtn', true);
-
+      const qty = document.getElementById('quantity').value;
+      if (!name || !product || !qty) { showResult('orderResult', '❌ Fill all fields', 'error'); return; }
       try {
-        const token = await getAccessToken();
-        if (!token) {
-          console.error('[ORDER] ❌ No access token available');
-          showMessage('Authentication expired. Please log in again.', 'error');
-          return;
-        }
-
-        console.log('[ORDER] Got token, sending to server');
-        console.log('[ORDER] Request:', { name, product, quantity });
-
-        const response = await fetch(`${API_URL}/order`, {
+        const res = await fetch(`${API_URL}/order`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ name, product, quantity: parseInt(quantity) })
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+          body: JSON.stringify({ name, product, quantity: parseInt(qty) })
         });
-
-        console.log('[ORDER] Response status:', response.status);
-
-        const data = await response.json();
-        console.log('[ORDER] Response data:', data);
-
-        if (!response.ok || !data.success) {
-          console.error('[ORDER] Server error:', data.error);
-          showMessage('Order failed: ' + (data.error || 'Unknown error'), 'error');
-          return;
-        }
-
-        console.log('[ORDER] ✅ Success:', data.data?.id);
-        showMessage('✅ Order created successfully!', 'success');
+        const data = await res.json();
+        console.log('[ORDER]', res.status, data);
+        if (!res.ok) throw new Error(data.error);
+        console.log('[ORDER] ✅ Created #' + data.data.id);
+        showResult('orderResult', `✅ Order #${data.data.id} created!`, 'success');
         document.getElementById('orderForm').reset();
         await loadOrders();
       } catch (err) {
-        console.error('[ORDER] Exception:', err.message);
-        showMessage('Order error: ' + err.message, 'error');
-      } finally {
-        setButtonLoading('submitOrderBtn', false);
+        console.error('[ORDER] ❌', err.message);
+        showResult('orderResult', `❌ ${err.message}`, 'error');
       }
-    }
+    });
 
     async function loadOrders() {
-      console.log('[ORDERS] ========== Loading Start ==========');
-
-      if (!currentUser) {
-        console.warn('[ORDERS] No user logged in');
-        return;
-      }
-
+      console.log('[ORDERS] Loading');
+      if (!authToken) { showResult('ordersResult', '❌ Must login', 'error'); return; }
       try {
-        const token = await getAccessToken();
-        if (!token) {
-          console.error('[ORDERS] ❌ No access token');
-          showMessage('Session expired. Please log in again.', 'error');
-          return;
-        }
-
-        console.log('[ORDERS] Got token, fetching orders...');
-        const response = await fetch(`${API_URL}/orders`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        console.log('[ORDERS] Response status:', response.status);
-
-        const data = await response.json();
-        console.log('[ORDERS] Response data:', data);
-
-        if (!response.ok || !data.success) {
-          console.error('[ORDERS] ❌ Server error:', data.error);
-          showMessage('Failed to load orders: ' + (data.error || 'Unknown error'), 'error');
-          return;
-        }
-
+        const res = await fetch(`${API_URL}/orders`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+        const data = await res.json();
+        console.log('[ORDERS]', res.status, data.data?.length || 0);
+        if (!res.ok) throw new Error(data.error);
         const orders = data.data || [];
-        const ordersList = document.getElementById('ordersList');
-
-        console.log('[ORDERS] ✅ Received:', orders.length || 0, 'orders');
-        if (!orders || orders.length === 0) {
-          console.log('[ORDERS] No orders to display');
-          ordersList.innerHTML = '<div class="empty-state"><p>No orders yet. Create one above!</p></div>';
+        if (orders.length === 0) {
+          document.getElementById('ordersList').innerHTML = '<p>No orders</p>';
           return;
         }
-
-        console.log('[ORDERS] Rendering', orders.length, 'orders');
-        ordersList.innerHTML = orders.map(order => `
-          <div class="order-card">
-            <div class="order-info">
-              <h3>${escapeHtml(order.name)}</h3>
-              <p><strong>Product:</strong> ${escapeHtml(order.product)}</p>
-              <p><strong>Quantity:</strong> ${escapeHtml(String(order.quantity))}</p>
-              <p style="font-size: 11px; color: #999; margin-top: 8px;">${new Date(order.created_at).toLocaleDateString()} ${new Date(order.created_at).toLocaleTimeString()}</p>
-            </div>
-            <div class="order-actions">
-              <button class="button button-danger" onclick="handleDeleteOrder(${order.id})">Delete</button>
-            </div>
-          </div>
-        `).join('');
-        console.log('[ORDERS] ========== Loading Complete ==========');
+        document.getElementById('ordersList').innerHTML = orders.map(o => `<div class="order-item"><p><strong>#${o.id}</strong> - ${o.name}</p><p>Product: ${o.product}</p><p>Qty: ${o.quantity}</p><button onclick="deleteOrder(${o.id})">Delete</button></div>`).join('');
       } catch (err) {
-        console.error('[ORDERS] ❌ Exception:', err.message);
-        console.error('[ORDERS] Stack:', err.stack);
-        showMessage('Error loading orders: ' + err.message, 'error');
+        console.error('[ORDERS] ❌', err.message);
+        showResult('ordersResult', `❌ ${err.message}`, 'error');
       }
     }
 
-    async function handleDeleteOrder(orderId) {
-      console.log('[DELETE] ========== Delete Started ==========');
-      console.log('[DELETE] Order ID:', orderId);
-
-      if (!confirm('Are you sure you want to delete this order?')) {
-        console.log('[DELETE] ❌ Cancelled by user');
-        return;
-      }
-
+    async function deleteOrder(id) {
+      console.log('[DELETE] Order', id);
+      if (!authToken) return;
       try {
-        console.log('[DELETE] Getting access token...');
-        const token = await getAccessToken();
-
-        if (!token) {
-          console.error('[DELETE] ❌ No access token');
-          showMessage('Session expired. Please log in again.', 'error');
-          return;
-        }
-
-        console.log('[DELETE] Token obtained, sending DELETE request...');
-        const response = await fetch(`${API_URL}/order/${orderId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        console.log('[DELETE] Response status:', response.status);
-
-        const data = await response.json();
-        console.log('[DELETE] Response data:', data);
-
-        if (!response.ok || !data.success) {
-          console.error('[DELETE] ❌ Server error:', data.error);
-          showMessage('Delete failed: ' + (data.error || 'Unknown error'), 'error');
-          return;
-        }
-
-        console.log('[DELETE] ✅ Order deleted');
-        showMessage('✅ Order deleted successfully!', 'success');
-        console.log('[DELETE] ========== Delete Complete ==========');
+        const res = await fetch(`${API_URL}/order/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${authToken}` } });
+        const data = await res.json();
+        console.log('[DELETE]', res.status);
+        if (!res.ok) throw new Error(data.error);
+        console.log('[DELETE] ✅ Deleted');
+        showResult('ordersResult', '✅ Order deleted!', 'success');
         await loadOrders();
       } catch (err) {
-        console.error('[DELETE] ❌ Exception:', err.message);
-        console.error('[DELETE] Stack:', err.stack);
-        showMessage('Delete error: ' + err.message, 'error');
+        console.error('[DELETE] ❌', err.message);
+        showResult('ordersResult', `❌ ${err.message}`, 'error');
       }
     }
 
-    // ========== UTILITIES ==========
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = String(text || '');
-      return div.innerHTML;
+    document.getElementById('loadOrdersBtn').addEventListener('click', loadOrders);
+
+    async function restore() {
+      console.log('[SESSION] Restoring');
+      const token = localStorage.getItem('authToken');
+      if (token) {
+        authToken = token;
+        try {
+          const { data, error } = await supabase.auth.getUser(token);
+          if (error || !data.user) throw new Error('Invalid');
+          currentUser = data.user;
+          console.log('[SESSION] ✅ Restored');
+        } catch (err) {
+          console.error('[SESSION] ❌', err.message);
+          localStorage.removeItem('authToken');
+          authToken = null;
+        }
+      }
+      updateStatus();
     }
 
-    // ========== START ==========
-    console.log('[APP] Starting initialization...');
-    document.addEventListener('DOMContentLoaded', init);
+    restore();
   </script>
 </body>
 </html>
