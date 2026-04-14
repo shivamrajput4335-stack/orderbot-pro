@@ -398,23 +398,37 @@
     async function init() {
       console.log('[INIT] OrderBot Pro starting...');
       console.log('[INIT] API URL:', API_URL);
+      console.log('[INIT] Supabase URL:', SUPABASE_URL);
 
       try {
+        console.log('[INIT] Checking session...');
         const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
+        
+        if (error) {
+          console.error('[INIT] Session error:', error.message);
+          throw error;
+        }
 
         if (data?.session?.user) {
-          console.log('[INIT] Session found:', data.session.user.id);
+          console.log('[INIT] ✅ Session found:', data.session.user.id);
+          console.log('[INIT] Email:', data.session.user.email);
           currentUser = data.session.user;
+          
+          if (data.session.access_token) {
+            console.log('[INIT] Storing access_token in localStorage');
+            localStorage.setItem('sb_access_token', data.session.access_token);
+          }
+          
           updateAuthUI();
-          loadOrders();
+          await loadOrders();
         } else {
-          console.log('[INIT] No session found');
+          console.log('[INIT] No session found - showing auth section');
           updateAuthUI();
         }
       } catch (err) {
-        console.error('[INIT] Error:', err.message);
+        console.error('[INIT] Error:', err.message, err.stack);
         showMessage('Session check failed: ' + err.message, 'error');
+        updateAuthUI();
       }
     }
 
@@ -471,47 +485,136 @@
         btn.innerHTML = btn.getAttribute('data-original-text') || (btnId.includes('login') ? 'Sign In' : btnId.includes('signup') ? 'Create Account' : btnId.includes('submit') ? 'Create Order' : 'Submit');
       }
     }
+    // ========== TOKEN UTILITY ==========
+    async function getAccessToken() {
+      console.log('[TOKEN] Attempting to get access token...');
+      
+      try {
+        // Try to get from Supabase session first
+        const { data, error } = await supabase.auth.getSession();
+        if (!error && data?.session?.access_token) {
+          console.log('[TOKEN] ✅ Got token from Supabase session');
+          return data.session.access_token;
+        }
+      } catch (err) {
+        console.warn('[TOKEN] Could not get Supabase session:', err.message);
+      }
+
+      // Fallback to localStorage
+      const storedToken = localStorage.getItem('sb_access_token');
+      if (storedToken) {
+        console.log('[TOKEN] ✅ Got token from localStorage');
+        return storedToken;
+      }
+
+      console.error('[TOKEN] ❌ No access token available');
+      return null;
+    }
+    // ========== TOKEN UTILITY ==========
+    async function getAccessToken() {
+      console.log('[TOKEN] Attempting to get access token...');
+      
+      try {
+        // Try to get from Supabase session first
+        const { data, error } = await supabase.auth.getSession();
+        if (!error && data?.session?.access_token) {
+          console.log('[TOKEN] ✅ Got token from Supabase session');
+          return data.session.access_token;
+        }
+      } catch (err) {
+        console.warn('[TOKEN] Could not get Supabase session:', err.message);
+      }
+
+      // Fallback to localStorage
+      const storedToken = localStorage.getItem('sb_access_token');
+      if (storedToken) {
+        console.log('[TOKEN] ✅ Got token from localStorage');
+        return storedToken;
+      }
+
+      console.error('[TOKEN] ❌ No access token available');
+      return null;
+    }
 
     // ========== AUTH HANDLERS ==========
     async function handleLogin(event) {
       event.preventDefault();
-      console.log('[LOGIN] Starting...');
+      console.log('[LOGIN] ========== Login Started ==========');
 
       const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
 
+      console.log('[LOGIN] Email:', email);
+      console.log('[LOGIN] Password length:', password.length);
+
       if (!email || !password) {
-        console.warn('[LOGIN] Validation failed: missing fields');
+        console.warn('[LOGIN] ❌ Validation failed: missing fields');
         showMessage('Please fill in all fields', 'error');
+        setButtonLoading('loginBtn', false);
         return;
       }
 
       setButtonLoading('loginBtn', true);
 
       try {
-        console.log('[LOGIN] Authenticating:', email);
+        console.log('[LOGIN] Calling supabase.auth.signInWithPassword...');
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
+        console.log('[LOGIN] Response received');
+        console.log('[LOGIN] Error:', error);
+        console.log('[LOGIN] Data:', data ? { user: data.user?.id, session: data.session ? 'exists' : 'none' } : 'null');
+
         if (error) {
-          console.error('[LOGIN] Error:', error.message);
+          console.error('[LOGIN] ❌ Auth error:', error.message);
           showMessage('Login failed: ' + error.message, 'error');
+          setButtonLoading('loginBtn', false);
           return;
         }
 
         if (!data.user) {
-          console.error('[LOGIN] No user data returned');
+          console.error('[LOGIN] ❌ No user data in response');
           showMessage('Login failed: No user data', 'error');
+          setButtonLoading('loginBtn', false);
           return;
         }
 
-        console.log('[LOGIN] ✅ Success:', data.user.id);
+        if (!data.session) {
+          console.error('[LOGIN] ❌ No session in response');
+          showMessage('Login failed: No session created', 'error');
+          setButtonLoading('loginBtn', false);
+          return;
+        }
+
+        console.log('[LOGIN] ✅ Auth successful for user:', data.user.id);
+        console.log('[LOGIN] ✅ Access token received:', data.session.access_token ? 'yes' : 'NO');
+        
+        // Store token in localStorage
+        if (data.session.access_token) {
+          localStorage.setItem('sb_access_token', data.session.access_token);
+          localStorage.setItem('sb_user_id', data.user.id);
+          localStorage.setItem('sb_user_email', data.user.email);
+          console.log('[LOGIN] ✅ Tokens stored in localStorage');
+        } else {
+          console.warn('[LOGIN] ⚠️ No access_token in session');
+        }
+
         currentUser = data.user;
+        console.log('[LOGIN] ✅ currentUser set:', currentUser.id);
+        
         document.getElementById('loginForm').reset();
+        console.log('[LOGIN] ✅ Form reset');
+        
         showMessage('✅ Logged in successfully!', 'success');
+        console.log('[LOGIN] ✅ Success message shown');
+        
         updateAuthUI();
-        loadOrders();
+        console.log('[LOGIN] ✅ UI updated');
+        
+        await loadOrders();
+        console.log('[LOGIN] ========== Login Complete ==========');
       } catch (err) {
-        console.error('[LOGIN] Exception:', err.message);
+        console.error('[LOGIN] ❌ Exception:', err.message);
+        console.error('[LOGIN] Stack:', err.stack);
         showMessage('Login error: ' + err.message, 'error');
       } finally {
         setButtonLoading('loginBtn', false);
@@ -520,48 +623,73 @@
 
     async function handleSignup(event) {
       event.preventDefault();
-      console.log('[SIGNUP] Starting...');
+      console.log('[SIGNUP] ========== Signup Started ==========');
 
       const email = document.getElementById('signupEmail').value.trim();
       const password = document.getElementById('signupPassword').value;
       const confirm = document.getElementById('signupConfirm').value;
 
+      console.log('[SIGNUP] Email:', email);
+      console.log('[SIGNUP] Password length:', password.length);
+      console.log('[SIGNUP] Confirm length:', confirm.length);
+
       if (!email || !password || !confirm) {
-        console.warn('[SIGNUP] Validation failed: missing fields');
+        console.warn('[SIGNUP] ❌ Validation failed: missing fields');
         showMessage('Please fill in all fields', 'error');
+        setButtonLoading('signupBtn', false);
         return;
       }
 
       if (password !== confirm) {
-        console.warn('[SIGNUP] Passwords do not match');
+        console.warn('[SIGNUP] ❌ Passwords do not match');
         showMessage('Passwords do not match', 'error');
+        setButtonLoading('signupBtn', false);
         return;
       }
 
       if (password.length < 6) {
-        console.warn('[SIGNUP] Password too short');
+        console.warn('[SIGNUP] ❌ Password too short (min 6 chars)');
         showMessage('Password must be at least 6 characters', 'error');
+        setButtonLoading('signupBtn', false);
         return;
       }
 
       setButtonLoading('signupBtn', true);
 
       try {
-        console.log('[SIGNUP] Creating account:', email);
+        console.log('[SIGNUP] Calling supabase.auth.signUp...');
         const { data, error } = await supabase.auth.signUp({ email, password });
 
+        console.log('[SIGNUP] Response received');
+        console.log('[SIGNUP] Error:', error);
+        console.log('[SIGNUP] Data:', data ? { user: data.user?.id } : 'null');
+
         if (error) {
-          console.error('[SIGNUP] Error:', error.message);
+          console.error('[SIGNUP] ❌ Auth error:', error.message);
           showMessage('Signup failed: ' + error.message, 'error');
+          setButtonLoading('signupBtn', false);
           return;
         }
 
-        console.log('[SIGNUP] ✅ Account created:', data.user?.id);
-        showMessage('✅ Account created! You may now log in.', 'success');
+        if (!data.user) {
+          console.error('[SIGNUP] ❌ No user created');
+          showMessage('Signup failed: User not created', 'error');
+          setButtonLoading('signupBtn', false);
+          return;
+        }
+
+        console.log('[SIGNUP] ✅ Account created:', data.user.id);
+        console.log('[SIGNUP] ✅ Email confirmation may be required');
+        
+        showMessage('✅ Account created! Check your email to confirm.', 'success');
         document.getElementById('signupForm').reset();
+        console.log('[SIGNUP] ✅ Form reset - switching to login tab');
+        
         switchTab('login');
+        console.log('[SIGNUP] ========== Signup Complete ==========');
       } catch (err) {
-        console.error('[SIGNUP] Exception:', err.message);
+        console.error('[SIGNUP] ❌ Exception:', err.message);
+        console.error('[SIGNUP] Stack:', err.stack);
         showMessage('Signup error: ' + err.message, 'error');
       } finally {
         setButtonLoading('signupBtn', false);
@@ -569,17 +697,41 @@
     }
 
     async function handleLogout() {
-      console.log('[LOGOUT] Logging out...');
+      console.log('[LOGOUT] ========== Logout Started ==========');
       try {
-        await supabase.auth.signOut();
-        console.log('[LOGOUT] ✅ Success');
+        console.log('[LOGOUT] Calling supabase.auth.signOut...');
+        const { error } = await supabase.auth.signOut();
+
+        if (error) {
+          console.error('[LOGOUT] ❌ Error:', error.message);
+          showMessage('Logout failed: ' + error.message, 'error');
+          return;
+        }
+
+        console.log('[LOGOUT] ✅ Supabase signOut complete');
+        
+        // Clear localStorage
+        localStorage.removeItem('sb_access_token');
+        localStorage.removeItem('sb_user_id');
+        localStorage.removeItem('sb_user_email');
+        console.log('[LOGOUT] ✅ localStorage cleared');
+        
         currentUser = null;
+        console.log('[LOGOUT] ✅ currentUser cleared');
+        
         updateAuthUI();
+        console.log('[LOGOUT] ✅ UI updated');
+        
         document.getElementById('loginForm').reset();
+        document.getElementById('signupForm').reset();
+        console.log('[LOGOUT] ✅ Forms reset');
+        
         showMessage('✅ Logged out successfully', 'success');
+        console.log('[LOGOUT] ========== Logout Complete ==========');
       } catch (err) {
-        console.error('[LOGOUT] Error:', err.message);
-        showMessage('Logout failed: ' + err.message, 'error');
+        console.error('[LOGOUT] ❌ Exception:', err.message);
+        console.error('[LOGOUT] Stack:', err.stack);
+        showMessage('Logout error: ' + err.message, 'error');
       }
     }
 
@@ -619,15 +771,15 @@
       setButtonLoading('submitOrderBtn', true);
 
       try {
-        const session = await supabase.auth.getSession();
-        if (!session.data?.session?.access_token) {
-          console.error('[ORDER] No access token');
+        const token = await getAccessToken();
+        if (!token) {
+          console.error('[ORDER] ❌ No access token available');
           showMessage('Authentication expired. Please log in again.', 'error');
           return;
         }
 
-        const token = session.data.session.access_token;
-        console.log('[ORDER] Sending to server:', { name, product, quantity });
+        console.log('[ORDER] Got token, sending to server');
+        console.log('[ORDER] Request:', { name, product, quantity });
 
         const response = await fetch(`${API_URL}/order`, {
           method: 'POST',
@@ -662,7 +814,7 @@
     }
 
     async function loadOrders() {
-      console.log('[ORDERS] Loading...');
+      console.log('[ORDERS] ========== Loading Start ==========');
 
       if (!currentUser) {
         console.warn('[ORDERS] No user logged in');
@@ -670,15 +822,14 @@
       }
 
       try {
-        const session = await supabase.auth.getSession();
-        const token = session.data?.session?.access_token;
-
+        const token = await getAccessToken();
         if (!token) {
-          console.error('[ORDERS] No access token');
+          console.error('[ORDERS] ❌ No access token');
           showMessage('Session expired. Please log in again.', 'error');
           return;
         }
 
+        console.log('[ORDERS] Got token, fetching orders...');
         const response = await fetch(`${API_URL}/orders`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -688,10 +839,10 @@
         console.log('[ORDERS] Response status:', response.status);
 
         const data = await response.json();
-        console.log('[ORDERS] Response:', data);
+        console.log('[ORDERS] Response data:', data);
 
         if (!response.ok || !data.success) {
-          console.error('[ORDERS] Server error:', data.error);
+          console.error('[ORDERS] ❌ Server error:', data.error);
           showMessage('Failed to load orders: ' + (data.error || 'Unknown error'), 'error');
           return;
         }
@@ -699,7 +850,7 @@
         const orders = data.data || [];
         const ordersList = document.getElementById('ordersList');
 
-        console.log('[ORDERS] Received:', orders.length || 0, 'orders');
+        console.log('[ORDERS] ✅ Received:', orders.length || 0, 'orders');
         if (!orders || orders.length === 0) {
           console.log('[ORDERS] No orders to display');
           ordersList.innerHTML = '<div class="empty-state"><p>No orders yet. Create one above!</p></div>';
@@ -720,30 +871,34 @@
             </div>
           </div>
         `).join('');
+        console.log('[ORDERS] ========== Loading Complete ==========');
       } catch (err) {
-        console.error('[ORDERS] Exception:', err.message);
+        console.error('[ORDERS] ❌ Exception:', err.message);
+        console.error('[ORDERS] Stack:', err.stack);
         showMessage('Error loading orders: ' + err.message, 'error');
       }
     }
 
     async function handleDeleteOrder(orderId) {
-      console.log('[DELETE] Attempting to delete order:', orderId);
+      console.log('[DELETE] ========== Delete Started ==========');
+      console.log('[DELETE] Order ID:', orderId);
 
       if (!confirm('Are you sure you want to delete this order?')) {
-        console.log('[DELETE] Cancelled by user');
+        console.log('[DELETE] ❌ Cancelled by user');
         return;
       }
 
       try {
-        const session = await supabase.auth.getSession();
-        const token = session.data?.session?.access_token;
+        console.log('[DELETE] Getting access token...');
+        const token = await getAccessToken();
 
         if (!token) {
-          console.error('[DELETE] No access token');
+          console.error('[DELETE] ❌ No access token');
           showMessage('Session expired. Please log in again.', 'error');
           return;
         }
 
+        console.log('[DELETE] Token obtained, sending DELETE request...');
         const response = await fetch(`${API_URL}/order/${orderId}`, {
           method: 'DELETE',
           headers: {
@@ -757,16 +912,18 @@
         console.log('[DELETE] Response data:', data);
 
         if (!response.ok || !data.success) {
-          console.error('[DELETE] Server error:', data.error);
+          console.error('[DELETE] ❌ Server error:', data.error);
           showMessage('Delete failed: ' + (data.error || 'Unknown error'), 'error');
           return;
         }
 
-        console.log('[DELETE] ✅ Success');
+        console.log('[DELETE] ✅ Order deleted');
         showMessage('✅ Order deleted successfully!', 'success');
+        console.log('[DELETE] ========== Delete Complete ==========');
         await loadOrders();
       } catch (err) {
-        console.error('[DELETE] Exception:', err.message);
+        console.error('[DELETE] ❌ Exception:', err.message);
+        console.error('[DELETE] Stack:', err.stack);
         showMessage('Delete error: ' + err.message, 'error');
       }
     }
