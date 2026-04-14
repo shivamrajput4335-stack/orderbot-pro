@@ -38,8 +38,7 @@ const apiLimiter = rateLimit({
 const orderLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 50,
-  keyGenerator: (req) => req.user?.id || req.ip,
-  skipSuccessfulRequests: false
+  skipFailedRequests: true
 });
 
 app.use(apiLimiter);
