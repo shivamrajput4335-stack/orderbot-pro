@@ -8,128 +8,127 @@ require("dotenv").config();
 
 const app = express();
 
-// 🔒 SECURITY: Helmet headers
-app.use(helmet());
-
-// 🔒 SECURITY: CORS
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? 'https://orderbot-pro.onrender.com'
-    : '*'
+app.use(helmet({
+  contentSecurityPolicy: false
 }));
 
-// 🔒 SECURITY: Body parser limit
-app.use(express.json({ limit: '10kb' }));
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://orderbot-pro.onrender.com', 'https://orderbot-pro-staging.onrender.com']
+    : '*',
+  credentials: true
+}));
 
-// 🌐 SERVE FRONTEND
+app.use(express.json({ limit: '10kb' }));
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// 🔗 SUPABASE
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// 🔐 AUTH MIDDLEWARE
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/'
+});
+
+const orderLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 50,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  skipSuccessfulRequests: false
+});
+
+app.use(apiLimiter);
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 async function verifyUser(req, res, next) {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Missing authorization header" });
     }
 
+    const token = authHeader.slice(7);
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error || !data.user) {
+      console.error("Token validation error:", error?.message || "Invalid token");
       return res.status(401).json({ error: "Invalid or expired token" });
     }
 
     req.user = data.user;
     next();
-
   } catch (err) {
-    console.error("Auth error:", err);
-    return res.status(500).json({ error: "Authentication failed" });
+    console.error("Auth middleware error:", err.message);
+    res.status(500).json({ error: "Authentication service error" });
   }
 }
 
-// 🚨 RATE LIMITING
-
-// General API rate limiter: 100 requests per 15 minutes per IP
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: "Too many requests, please try again later",
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-// Order creation rate limiter: 30 orders per hour per user
-const orderLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 30,
-  keyGenerator: (req) => req.user?.id || req.ip,
-  message: "Too many orders created, please try again later"
-});
-
-// Apply general limiter to all API routes
-app.use("/", apiLimiter);
-
-// 🚀 CREATE ORDER (FIXED: Added verifyUser)
 app.post("/order", verifyUser, orderLimiter, async (req, res) => {
   try {
-    let { name, product, quantity } = req.body;
+    const { name, product, quantity } = req.body;
 
-    name = String(name || "").trim();
-    product = String(product || "").trim();
-    const qty = Number(quantity);
+    const nameStr = String(name || "").trim();
+    const productStr = String(product || "").trim();
+    const qty = parseInt(quantity, 10);
 
-    if (!name || !product) {
-      return res.status(400).json({ error: "Name and product are required" });
+    if (!nameStr) {
+      return res.status(400).json({ error: "Customer name is required" });
+    }
+    if (!productStr) {
+      return res.status(400).json({ error: "Product is required" });
+    }
+    if (isNaN(qty) || qty < 1) {
+      return res.status(400).json({ error: "Quantity must be at least 1" });
+    }
+    if (qty > 10000) {
+      return res.status(400).json({ error: "Quantity cannot exceed 10000" });
+    }
+    if (nameStr.length > 200) {
+      return res.status(400).json({ error: "Customer name too long" });
+    }
+    if (productStr.length > 200) {
+      return res.status(400).json({ error: "Product name too long" });
     }
 
-    if (isNaN(qty) || qty <= 0) {
-      return res.status(400).json({ error: "Quantity must be a positive number" });
-    }
-
-    if (name.length > 100 || product.length > 100) {
-      return res.status(400).json({ error: "Name and product must be less than 100 characters" });
-    }
+    console.log(`[ORDER] Creating order for user ${req.user.id}: ${nameStr} x${qty} of ${productStr}`);
 
     const { data, error } = await supabase
       .from("orders")
-      .insert([
-        {
-          name,
-          product,
-          quantity: qty,
-          user_id: req.user.id
-        }
-      ])
+      .insert({
+        name: nameStr,
+        product: productStr,
+        quantity: qty,
+        user_id: req.user.id
+      })
       .select()
       .single();
 
     if (error) {
-      console.error("Insert error:", error);
+      console.error("[ORDER_ERROR] Database insert failed:", error.message, error.code);
       return res.status(500).json({ error: "Failed to create order" });
     }
 
+    console.log(`[ORDER_SUCCESS] Order ${data.id} created`);
     res.status(201).json({ success: true, order: data });
 
   } catch (err) {
-    console.error("Server error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("[SERVER_ERROR] POST /order:", err.message);
+    res.status(500).json({ error: "Server error occurred" });
   }
 });
 
-// 📦 GET ORDERS (FIXED: Added verifyUser)
 app.get("/orders", verifyUser, async (req, res) => {
   try {
+    console.log(`[ORDERS] Fetching for user ${req.user.id}`);
+
     const { data, error } = await supabase
       .from("orders")
       .select("*")
@@ -137,50 +136,58 @@ app.get("/orders", verifyUser, async (req, res) => {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Query error:", error);
+      console.error("[ORDERS_ERROR] Query failed:", error.message);
       return res.status(500).json({ error: "Failed to fetch orders" });
     }
 
     res.json(data || []);
-
   } catch (err) {
-    console.error("Server error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("[SERVER_ERROR] GET /orders:", err.message);
+    res.status(500).json({ error: "Server error occurred" });
   }
 });
 
-// ❌ DELETE ORDER (FIXED: Added better validation)
 app.delete("/order/:id", verifyUser, async (req, res) => {
   try {
-    const id = req.params.id;
+    const orderId = req.params.id;
 
-    if (!id || isNaN(parseInt(id))) {
-      return res.status(400).json({ error: "Invalid order ID" });
+    if (!orderId || !/^\d+$/.test(orderId)) {
+      return res.status(400).json({ error: "Invalid order ID format" });
     }
 
-    const { error } = await supabase
+    console.log(`[DELETE] Attempting to delete order ${orderId} for user ${req.user.id}`);
+
+    const { error: deleteError } = await supabase
       .from("orders")
       .delete()
-      .eq("id", id)
+      .eq("id", orderId)
       .eq("user_id", req.user.id);
 
-    if (error) {
-      console.error("Delete error:", error);
+    if (deleteError) {
+      console.error("[DELETE_ERROR]:", deleteError.message);
       return res.status(500).json({ error: "Failed to delete order" });
     }
 
-    res.json({ success: true, message: "Order deleted" });
-
+    console.log(`[DELETE_SUCCESS] Order ${orderId} deleted`);
+    res.json({ success: true, message: "Order deleted successfully" });
   } catch (err) {
-    console.error("Server error:", err);
-    res.status(500).json({ error: "Server error" });
+    console.error("[SERVER_ERROR] DELETE /order/:id:", err.message);
+    res.status(500).json({ error: "Server error occurred" });
   }
 });
 
-// 🚀 START SERVER
-const PORT = process.env.PORT || 3000;
+app.use((req, res) => {
+  res.status(404).json({ error: "Endpoint not found" });
+});
 
+app.use((err, req, res, next) => {
+  console.error("[UNCAUGHT_ERROR]:", err.message);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ OrderBot Pro running on port ${PORT}`);
-  console.log(`🔗 Supabase: ${process.env.SUPABASE_URL ? "✓ Connected" : "✗ Missing SUPABASE_URL"}`);
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🔗 Supabase connected: ${process.env.SUPABASE_URL ? "Yes" : "No"}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
