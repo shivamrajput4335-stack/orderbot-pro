@@ -8,9 +8,19 @@ require("dotenv").config();
 
 const app = express();
 
-app.use(helmet({
-  contentSecurityPolicy: false
-}));
+// Disable helmet to avoid CSP issues in dev/testing
+// app.use(helmet({
+//   contentSecurityPolicy: false,
+//   crossOriginEmbedderPolicy: false
+// }));
+
+// Set permissive CSP manually
+app.use((req, res, next) => {
+  res.header('Content-Security-Policy', "default-src *; script-src 'unsafe-inline' 'unsafe-eval' *; style-src 'unsafe-inline' *; img-src data: *");
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  next();
+});
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
