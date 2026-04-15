@@ -318,39 +318,45 @@
   </div>
 
   <!-- Supabase Client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Shared Utilities -->
-  <script src="/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/app.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
 
-  <script>
-    const messageEl = document.getElementById('message');
-    const tabButtons = document.querySelectorAll('.tab-btn');
-    const loginForm = document.getElementById('loginForm');
-    const signupForm = document.getElementById('signupForm');
+  const messageEl = document.getElementById('message');
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
 
-    // Tab switching
+  // =========================
+  // TAB SWITCH (UNCHANGED)
+  // =========================
+  if (tabButtons.length) {
     tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        // Remove active from all tabs
         tabButtons.forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
 
-        // Add active to clicked tab
         btn.classList.add('active');
         const tabId = btn.getAttribute('data-tab');
-        document.getElementById(tabId).classList.add('active');
 
-        // Clear messages
-        messageEl.style.display = 'none';
+        const tab = document.getElementById(tabId);
+        if (tab) tab.classList.add('active');
+
+        if (messageEl) messageEl.style.display = 'none';
       });
     });
+  }
 
-    // Login form handler
+  // =========================
+  // LOGIN (FIXED USER HANDLING)
+  // =========================
+  if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const email = document.getElementById('loginEmail').value.trim();
-      const password = document.getElementById('loginPassword').value;
+      const email = document.getElementById('loginEmail')?.value.trim();
+      const password = document.getElementById('loginPassword')?.value;
 
       if (!email || !password) {
         showMessage(messageEl, 'Please fill in all fields', 'error');
@@ -358,24 +364,44 @@
       }
 
       setButtonLoading('loginBtn', true);
-      const result = await signIn(email, password);
-      setButtonLoading('loginBtn', false);
 
-      if (result.success) {
-        showMessage(messageEl, '✅ Sign in successful! Redirecting...', 'success');
-        redirectToOrders();
-      } else {
-        showMessage(messageEl, `❌ ${result.error}`, 'error');
+      try {
+        const result = await signIn(email, password);
+
+        // 🔥 FIX: support both response formats
+        const user = result.data?.user || result.data?.session?.user;
+
+        if (result.success && user) {
+          localStorage.setItem('user_id', user.id);
+
+          showMessage(messageEl, '✅ Login successful! Redirecting...', 'success');
+
+          setTimeout(() => {
+            window.location.href = '/order.html';
+          }, 800);
+        } else {
+          throw new Error(result.error || 'Login failed');
+        }
+
+      } catch (err) {
+        console.error(err);
+        showMessage(messageEl, `❌ ${err.message}`, 'error');
       }
-    });
 
-    // Signup form handler
+      setButtonLoading('loginBtn', false);
+    });
+  }
+
+  // =========================
+  // SIGNUP (FIXED EMOJI + USER HANDLING)
+  // =========================
+  if (signupForm) {
     signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      const email = document.getElementById('signupEmail').value.trim();
-      const password = document.getElementById('signupPassword').value;
-      const passwordConfirm = document.getElementById('signupPasswordConfirm').value;
+      const email = document.getElementById('signupEmail')?.value.trim();
+      const password = document.getElementById('signupPassword')?.value;
+      const passwordConfirm = document.getElementById('signupPasswordConfirm')?.value;
 
       if (!email || !password || !passwordConfirm) {
         showMessage(messageEl, 'Please fill in all fields', 'error');
@@ -393,18 +419,42 @@
       }
 
       setButtonLoading('signupBtn', true);
-      const result = await signUp(email, password);
-      setButtonLoading('signupBtn', false);
 
-      if (result.success) {
-        showMessage(messageEl, '✅ Account created! Redirecting to orders...', 'success');
-        redirectToOrders();
-      } else {
-        showMessage(messageEl, `❌ ${result.error}`, 'error');
+      try {
+        const result = await signUp(email, password);
+
+        if (!result.success) {
+          throw new Error(result.error || 'Signup failed');
+        }
+
+        showMessage(messageEl, '✅ Account created! Logging in...', 'success');
+
+        const loginResult = await signIn(email, password);
+
+        // 🔥 FIX: support both formats
+        const user = loginResult.data?.user || loginResult.data?.session?.user;
+
+        if (loginResult.success && user) {
+          localStorage.setItem('user_id', user.id);
+
+          setTimeout(() => {
+            window.location.href = '/order.html';
+          }, 800);
+        } else {
+          showMessage(messageEl, '⚠️ Signup done. Please login manually.', 'error');
+        }
+
+      } catch (err) {
+        console.error(err);
+        showMessage(messageEl, `❌ ${err.message}`, 'error');
       }
-    });
 
-    console.log('[AUTH PAGE] Initialized');
-  </script>
+      setButtonLoading('signupBtn', false);
+    });
+  }
+
+  console.log('[AUTH PAGE FIXED — NO STRUCTURE CHANGE]');
+});
+</script>
 </body>
 </html>
